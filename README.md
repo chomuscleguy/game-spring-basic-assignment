@@ -175,3 +175,50 @@ public GameDetailResponse createGame(CreateRequest request) {
 ![레벨 4 에러 해결 화면](./img/lv4_img.png)
 
 </details>
+
+**Lv5. Bean Validation: 게임 생성**
+- [x]  `RunCardRequest`와 `CardResponse` DTO 클래스를 API 명세에 맞게 구현하세요.
+- [x]  확인: "새 게임"을 누르면 아래 오른쪽처럼 시작 보상 화면까지 열립니다. 보상을 고르면 에러가 나는 것은 아직 진행 저장 API가 없어서이며 정상입니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+<br>
+
+```java
+@Getter
+@RequiredArgsConstructor
+public class CardResponse {
+    // TODO (Lv 5): API 명세의 카드 응답 JSON에 맞게 필드를 만들고 생성자에서 채우세요.
+    private final Long id;
+    private final String cardType;
+    private final Integer acquiredFloor;
+
+//    public CardResponse(Long id, String cardType, int acquiredFloor) {
+//        this.id = id;
+//        this.cardType = cardType;
+//        this.acquiredFloor = acquiredFloor;
+//    }
+}
+```
+"기존 생성자에 id, cardType, acquiredFloor가 있어 API 명세에는 id가 명시되어 있지 않지만 우선 모두 포함하여 생성자를 작성했습니다.
+@RequiredArgsConstructor와 직접 생성자를 작성하는 방식은 컴파일 결과물 측면에서는 차이가 없지만, 유지보수성과 생산성 향상을 위해 롬복(Lombok)을 사용하기로 결정했습니다.
+생산성과 유지보수성에서 가장 큰 차이가 나는 이유는 필드가 추가될 때마다 일일이 생성자를 수정할 번거로움이 사라지기 때문입니다."
+
+```java
+@Getter
+public class RunCardRequest {
+    // TODO (Lv 5): API 명세의 카드 필드 제약을 Bean Validation 어노테이션으로 붙이세요.
+
+    @NotBlank()
+    private String cardType;
+
+    @Min(value = 0)
+    @Max(value = 10)
+    private Integer acquiredFloor;
+}
+```
+
+![레벨 5 에러 해결 화면](./img/lv5_img.png)
+
+</details>
