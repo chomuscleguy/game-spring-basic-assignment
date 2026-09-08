@@ -124,3 +124,16 @@ show tables;
 ```
 
 </details>
+
+**Lv3. RESTful API: 게임 목록 조회**
+- [x] GET http://localhost:8080/games를 호출하면 지금은 405가 나옵니다. 200이 나오게 고쳐야 합니다.
+- [x] 확인: 요청이 200과 빈 목록([])을 반환하고, 게임 타이틀이 에러 없이 열립니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+<br>
+
+![alt text](image-1.png)
+
+</details>
