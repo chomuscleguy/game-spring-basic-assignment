@@ -222,3 +222,29 @@ public class RunCardRequest {
 ![레벨 5 에러 해결 화면](./img/lv5_img.png)
 
 </details>
+
+**Lv6. 보상 카드 선택과 진행 저장**
+- [x]  API 문서의 응답(Response) 명세 생성은 해당 API 메서드의 return 타입을 기반으로 생성됩니다. 그런데 return 타입이 ResponseEntity<?>로 타이핑 되어있어 정확한 타입을 알 수 없으니 정확하게 고쳐주세요.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+<br>
+
+```java
+@PutMapping("/games/{gameId}/progress")
+public ResponseEntity<?> updateProgress(
+        @PathVariable Long gameId,
+        @Valid @RequestBody ProgressRequest request
+) {
+         return ResponseEntity.ok(gameService.updateProgress(gameId, request));
+}
+
+@Transactional
+public GameDetailResponse updateProgress(Long gameId, ProgressRequest request) {
+}
+```
+기존 메서드의 반환 타입이 와일드카드(<?>)로 지정되어 있어, 이를 명확한 타입으로 수정하여 타입 안정성을 높였습니다. 
+해당 메서드가 반환하는 updateProgress()의 리턴 타입이 GameDetailResponse이므로, ResponseEntity의 제네릭 타입도 GameDetailResponse로 맞춰주었습니다.
+
+</details>

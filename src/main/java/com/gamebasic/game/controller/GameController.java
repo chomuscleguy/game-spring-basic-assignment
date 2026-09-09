@@ -2,15 +2,13 @@ package com.gamebasic.game.controller;
 
 import com.gamebasic.game.dto.CreateRequest;
 import com.gamebasic.game.dto.GameDetailResponse;
+import com.gamebasic.game.dto.ProgressRequest;
 import com.gamebasic.game.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -33,11 +31,11 @@ public class GameController {
     }
 
     // TODO (Lv 6): 진행과 전체 덱 저장. 주석을 풀고 구현하세요.
-    // @PutMapping("/games/{gameId}/progress")
-    // public ResponseEntity<?> updateProgress(
-    //     @PathVariable Long gameId,
-    //     @Valid @RequestBody ProgressRequest request
-    // ) {
-    //     return ResponseEntity.ok(gameService.updateProgress(gameId, request));
-    // }
+     @PutMapping("/games/{gameId}/progress")
+     public ResponseEntity<GameDetailResponse> updateProgress(
+         @PathVariable Long gameId,
+         @Valid @RequestBody ProgressRequest request
+     ) {
+         return ResponseEntity.ok(gameService.updateProgress(gameId, request));
+     }
 }
