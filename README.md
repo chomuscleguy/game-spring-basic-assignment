@@ -478,3 +478,35 @@ public ResponseEntity<Void> deleteGame(@PathVariable Long gameId) {
 
 </details>
 
+## 도전 기능 구현
+
+**Lv9.  끝난 게임 덮어쓰기 막기**
+
+게임 클라이언트는 끝난 게임에 진행 저장 요청을 보내지 않습니다. 하지만 외부에서 직접 API를 호출하면, 이미 끝난 게임(status가 CLEARED나 FAILED)의 최종 기록을 새 내용으로 덮어써 버리는 버그가 있습니다.
+- [x]  끝난 게임인지는 Game의 isFinished() 메서드로 판정하고, 끝난 게임에 대한 진행 저장 요청은 ResponseStatusException으로 409를 반환하고 데이터를 바꾸지 않도록 고치세요.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+GameService의 updateProgress 메서드 실행 시 game.isFinished()를 통해 게임 종료 여부를 먼저 검증하도록 수정했습니다.
+게임이 이미 종료된 상태(status가 CLEARED 또는 FAILED)인 경우 HttpStatus.CONFLICT 예외를 발생시켜 기존 게임 정보 및 카드 덱 데이터가 덮어씌워지지 않도록 방어 로직을 구현했습니다.
+
+```java
+    public GameDetailResponse updateProgress(Long gameId, ProgressRequest request) {
+        Game game = findGame(gameId);
+
+        if (game.isFinished()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+        }
+```
+
+</details>
+
+- [x]  확인: Postman으로 FAILED인 게임에 PUT /games/{gameId}/progress를 보내면 409가 옵니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+![레벨 9 에러 해결 화면](./img/lv9_img.png)
+
+</details>

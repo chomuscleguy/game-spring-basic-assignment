@@ -1,5 +1,7 @@
 package com.gamebasic.game.service;
 
+import com.gamebasic.common.exception.GameFinishedException;
+import com.gamebasic.common.exception.GameNotFoundException;
 import com.gamebasic.game.dto.*;
 import com.gamebasic.game.entity.Game;
 import com.gamebasic.game.repository.GameRepository;
@@ -14,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.smartcardio.Card;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,6 +62,11 @@ public class GameService {
     @Transactional
     public GameDetailResponse updateProgress(Long gameId, ProgressRequest request) {
         Game game = findGame(gameId);
+
+        if (game.isFinished()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+        }
+
         game.updateProgress(
                 request.getCurrentHp(),
                 request.getCurrentFloor(),
@@ -125,16 +131,16 @@ public class GameService {
     }
 
     @Transactional
-    public GameDetailResponse renameGame(Long gameId, @Valid RenameRequest request) {
+    public void renameGame(Long gameId, @Valid RenameRequest request) {
         Game game = findGame(gameId);
         game.rename(request.getPlayerName());
-
-        return getGame(gameId);
     }
 
     @Transactional
     public void deleteGame(Long gameId) {
-        Game game = findGame(gameId);
+        Game game = gameRepository.findById(gameId)
+                .orElseThrow(() -> new GameNotFoundException(gameId));
+
         runCardRepository.deleteAllByGame(game);
         gameRepository.delete(game);
     }
