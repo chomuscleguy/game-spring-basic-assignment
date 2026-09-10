@@ -574,3 +574,63 @@ public GameDetailResponse updateProgress(Long gameId, ProgressRequest request) {
 ![레벨 10 에러 해결 화면](./img/lv10_img.png)
 
 </details>
+
+**Lv11. N+1 없는 카드 수 집계와 저장 시간**
+group by 쿼리와 N+1 문제에 대해 공부하시고 문제를 풀어주세요.
+```java
+// TODO (Lv 11): @Query 작성
+// List<DeckCount> countByGames(List<Game> games);
+```
+(RunCardRepository의 countByGames메서드에 @Query를 작성해야 합니다.)
+- [x]  저장 시간: `BaseEntity`를 Game에만 적용해 `createdAt`, `updatedAt`을 목록·상세 응답에 포함합니다. (이전 데이터들은 createdAt과 updatedAt이 누락되어있으므로 DB에서 삭제)
+- [x]  카드 수: 목록·검색 응답에 저장된 덱의 카드 수(`deckSize`)를 포함합니다. 게임이 N개여도 쿼리 수가 늘지 않아야 합니다(N+1 금지). 기준은 목록 조회가 게임 조회 1회와 카드 수 집계 1회, 검색은 여기에 전체 개수 조회 1회를 더한 3회입니다. 마지막 페이지에서는 Spring Data가 전체 개수를 계산하지 않아도 되어 2회만 실행되는 것이 정상입니다.
+    - [x]  카드 수 집계는 **DTO 프로젝션**으로 받습니다. 게임 ID와 카드 수를 담는 DTO 클래스를 만들고, JPQL의 `select new 패키지.클래스(...)` 구문으로 `group by` 결과를 그 DTO 목록으로 바로 조회합니다.
+    - [x]  확인: SQL 로그(`spring.jpa.show-sql=true`)에서 쿼리가 게임 수만큼 늘어나는 것을 확인한 뒤, 상수 개의 쿼리로 고쳐 로그를 비교합니다. SQL 로그의 쿼리 수가 게임 수와 무관하게 일정해집니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+DTO 프로젝션이란, DB에서 데이터를 가져올 때 Entity 전체를 조회하지 않고, 딱 필요한 필드만 DTO 형태로 뽑아서 가져오는 기술입니다.
+
+```SQL
+-- 일반 Entity를 조회할 경우 모든 필드를 가져옴
+SELECT id, game, card_type, acquiredFloor FROM run_card;
+```
+
+위의 예시에 나온 DeckCount를 DTO 클래스로 만들고 필드로 gameId와 count를 받습니다.
+
+```java
+@Getter
+public class DeckCount {
+    private final Long gameId;
+    private final Long count;
+
+    public DeckCount(Long gameId, Long count) {
+        this.gameId = gameId;
+        this.count = count;
+    }
+}
+```
+
+@RequiredArgsConstructor를 사용하지 않고 직접 생성자를 작성한 이유는 JPQL의 NEW 키워드(DTO 프로젝션)가 작동하는 방식 때문입니다.
+자동 생성자에 의존할 경우, 필드 순서 변경이나 final 키워드 유무에 따라 생성자 파라미터 순서가 달라져 JPQL NEW 구문 매핑 시 타입 불일치 에러 또는 데이터 엉킴 버그가 발생할 수 있습니다. 따라서 파라미터의 타입과 순서를 명확히 고정하기 위해 직접 생성자를 명시했습니다.
+
+```java
+@Query("SELECT new com.gamebasic.runcard.dto.DeckCount(rc.game.id, COUNT(rc)) " + //rc.game.id와 COUNT(rc), 이 두개를 필드로 가지는 DTO 객체를 생성하게 됩니다.
+            "FROM RunCard rc " +                                                 //기준이 되는 주 Entity는 RunCard(rc)
+            "WHERE rc.game IN :games " +                                        //List<Game>을 전달
+            "GROUP BY rc.game.id")                                             //game.id 단위로 COUNT(rc) 집계 함수 실행
+    List<DeckCount> countByGames(@Param("games") List<Game> games);           //메서드 반환 타입이 List<DeckCount>이므로, JPQL이 실행된 결과를 곧바로 DTO 리스트 형태로 받아옴
+```
+
+![레벨 11 에러 해결 화면](./img/lv11_1_img.png)
+</details>
+
+- [x]  확인: 저장된 여정 목록에 마지막 저장 시간과 "카드 N장"이 표시됩니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+![레벨 11 에러 해결 화면](./img/lv11_2_img.png)
+
+</details>

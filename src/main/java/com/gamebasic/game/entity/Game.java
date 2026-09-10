@@ -37,9 +37,6 @@ public class Game {
     @Column(nullable = false, length = 16)
     private GameStatus status;
 
-    @Column(nullable = false)
-    private int deckSize = 0;
-
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -64,14 +61,12 @@ public class Game {
         int currentHp,
         int currentFloor,
         GamePhase phase,
-        GameStatus status,
-        int deckSize
+        GameStatus status
     ) {
         this.currentHp = currentHp;
         this.currentFloor = currentFloor;
         this.phase = phase;
         this.status = status;
-        this.deckSize = deckSize;
     }
 
     public boolean isFinished() {
