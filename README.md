@@ -376,3 +376,105 @@ GameDetailResponse 응답을 구성하기 위해 먼저 gameId로 Game 엔티티
 ![레벨 7 에러 해결 화면](./img/lv7_img.png)
 
 </details>
+
+
+**Lv8.  더티 체킹: 이름 수정, 자식부터 삭제**
+- [x]  아래의 코드를 이용하여 이름 변경 API를 구현하세요. 요청 DTO(RenameRequest)는 새로 만들고, Entity의 rename()메서드를 활용하여 더티 체킹 방식으로 업데이트합니다.
+
+```java
+@PatchMapping("/games/{gameId}")
+public ResponseEntity<Void> renameGame(
+    @PathVariable Long gameId,
+    @Valid @RequestBody RenameRequest request
+) {
+    gameService.renameGame(gameId, request);
+    return ResponseEntity.noContent().build();
+}
+```
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+1. 요청 DTO 생성
+   변경할 플레이어 이름을 담는 playerName 필드를 추가하고 @NotBlank, @Size 검증 어노테이션을 적용했습니다.
+
+   [RenameRequest 바로가기](./src/main/java/com/gamebasic/game/dto/RenameRequest.java)
+
+
+2. 응답 타입 및 Controller 수정
+   업데이트된 최신 게임 정보를 응답 바디로 전달하기 위해 전체 목록 DTO(GameSummaryResponse)가 아닌 단건 상세 DTO (GameDetailResponse)를 반환하도록 변경했습니다.
+   이에 따라 HTTP 상태 코드를 No Content에서 OK로 조정했습니다.
+
+```java
+@PatchMapping("/games/{gameId}")
+    public ResponseEntity<GameDetailResponse> renameGame(
+            @PathVariable Long gameId,
+            @Valid @RequestBody RenameRequest request
+    ) {
+        return ResponseEntity.ok(gameService.renameGame(gameId, request));
+    }
+```
+
+```java
+@Transactional
+public GameDetailResponse renameGame(Long gameId, RenameRequest request) {
+    Game game = findGame(gameId);
+    game.rename(request.getPlayerName());
+
+    return getGame(gameId);
+}
+```
+
+</details>
+
+- [x]  아래의 코드를 이용하여 삭제 API를 구현하세요. gameId 조건에 맞는 Game과 RunCard가 모두 삭제되어야합니다.
+
+```java
+@DeleteMapping("/games/{gameId}")
+public ResponseEntity<Void> deleteGame(@PathVariable Long gameId) {
+    gameService.deleteGame(gameId);
+    return ResponseEntity.noContent().build();
+}
+```
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+1. 외래키(FK) 제약조건을 고려한 삭제 순서 보장
+   RunCard 테이블은 Game 테이블의 gameId를 외래키로 참조하고 있습니다.
+   따라서 부모 데이터인 Game을 먼저 삭제하려 할 경우 외래키 제약조건 위반 예외 DataIntegrityViolationException가 발생합니다.
+   이를 방지하기 위해 자식 데이터인 RunCard 목록을 먼저 삭제(deleteAllByGame)한 후, 부모 데이터인 Game을 삭제(gameRepository.delete)하도록 순서를 보장했습니다.
+
+2. 응답 규격 (HTTP 204 No Content)
+   삭제 작업 완료 후 별도의 응답 바디 데이터가 필요 없으므로 ResponseEntity.noContent().build()를 통해 RESTful 규격에 맞추어 No Content를 반환하도록 작성했습니다.
+
+```java
+@DeleteMapping("/games/{gameId}")
+    public ResponseEntity<Void> deleteGame(@PathVariable Long gameId) {
+        gameService.deleteGame(gameId);
+        return ResponseEntity.noContent().build();
+    }
+```
+
+```java
+@Transactional
+    public void deleteGame(Long gameId) {
+        Game game = findGame(gameId);
+        runCardRepository.deleteAllByGame(game);
+        gameRepository.delete(game);
+    }
+```
+
+</details>
+
+- [x]  확인: 저장된 여정 목록에서 이름을 바꾸면 새 이름이 표시되고, 삭제하면 게임이 사라집니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+![레벨 8_1 에러 해결 화면](./img/lv8_1_img.png)
+![레벨 8_2 에러 해결 화면](./img/lv8_2_img.png)
+![레벨 8_3 에러 해결 화면](./img/lv8_3_img.png)
+
+</details>
+
