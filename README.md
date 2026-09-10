@@ -510,3 +510,67 @@ GameService의 updateProgress 메서드 실행 시 game.isFinished()를 통해 �
 ![레벨 9 에러 해결 화면](./img/lv9_img.png)
 
 </details>
+
+**Lv10. 전역 예외 처리: 404·409에 message 붙이기**
+
+- [x]  `GlobalExceptionHandler`에 `GameNotFoundException`을 404로, `GameFinishedException`을 409로 바꾸는 핸들러 두 개를 추가합니다. 제공된 400 핸들러와 `respond` 메서드를 참고합니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+@Controller나 @RestControllerAdvice 클래스 내부에서 발생한 특정 예외(Exception)을 감지, 전담 처리하는 역할을 합니다.
+@ExceptionHandler(xxxxException.class)라고 지정해두면, xxxxException이 실행되었을 때, Spring이 이걸 가로채서 해당 어노테이션이 붙은 메서드를 대신 실행하게 만들 수 있습니다.
+
+404 = NOT_FOUND
+409 = CONFLICT
+
+e.getMessage()를 통해 예외 객체 생성 시 전달한 커스텀 메시지를 프로젝트 공통 응답 DTO(ErrorResponse)로 변환하여 클라이언트에 전달합니다.
+
+```java
+@ExceptionHandler(GameFinishedException.class)
+public ResponseEntity<ErrorResponse> handleFinished(
+        GameFinishedException e, HttpServletRequest request) {
+    return respond(HttpStatus.CONFLICT, e.getMessage(), request);
+}
+
+@ExceptionHandler(GameNotFoundException.class)
+public ResponseEntity<ErrorResponse> handleNotFound(
+        GameNotFoundException e, HttpServletRequest request) {
+    return respond(HttpStatus.NOT_FOUND, e.getMessage(), request);
+}
+```
+
+</details>
+
+- [x]  서비스에서 `ResponseStatusException`으로 만들던 없는 게임(404)과 끝난 게임(409)을 제공된 예외 두 개로 바꿔 던집니다.
+
+
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+```java
+private Game findGame(Long gameId) {
+    return gameRepository.findById(gameId)
+            .orElseThrow(() -> new GameNotFoundException(gameId));
+}
+
+public GameDetailResponse updateProgress(Long gameId, ProgressRequest request) {
+        Game game = findGame(gameId);
+
+        if (game.isFinished()) {
+            throw new GameFinishedException(gameId);
+        }
+}
+```
+
+</details>
+
+- [x]  확인: Postman으로 `GET http://localhost:8080/games/999`를 호출하면 아래처럼 응답이 명세 형식(`status`, `error`, `message`, `path`)으로 바뀝니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+![레벨 10 에러 해결 화면](./img/lv10_img.png)
+
+</details>

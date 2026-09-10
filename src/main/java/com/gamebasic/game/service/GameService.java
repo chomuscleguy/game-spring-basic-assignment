@@ -11,10 +11,8 @@ import com.gamebasic.runcard.entity.RunCard;
 import com.gamebasic.runcard.repository.RunCardRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +54,7 @@ public class GameService {
 
     private Game findGame(Long gameId) {
         return gameRepository.findById(gameId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new GameNotFoundException(gameId));
     }
 
     @Transactional
@@ -64,7 +62,7 @@ public class GameService {
         Game game = findGame(gameId);
 
         if (game.isFinished()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT);
+            throw new GameFinishedException(gameId);
         }
 
         game.updateProgress(
@@ -138,8 +136,7 @@ public class GameService {
 
     @Transactional
     public void deleteGame(Long gameId) {
-        Game game = gameRepository.findById(gameId)
-                .orElseThrow(() -> new GameNotFoundException(gameId));
+        Game game = findGame(gameId);
 
         runCardRepository.deleteAllByGame(game);
         gameRepository.delete(game);

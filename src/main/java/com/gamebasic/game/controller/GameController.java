@@ -31,19 +31,20 @@ public class GameController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-     @PutMapping("/games/{gameId}/progress")
-     public ResponseEntity<GameDetailResponse> updateProgress(
-         @PathVariable Long gameId,
-         @Valid @RequestBody ProgressRequest request
-     ) {
-         return ResponseEntity.ok(gameService.updateProgress(gameId, request));
-     }
+    @PutMapping("/games/{gameId}/progress")
+    public ResponseEntity<GameDetailResponse> updateProgress(
+            @PathVariable Long gameId,
+            @Valid @RequestBody ProgressRequest request
+    ) {
+        return ResponseEntity.ok(gameService.updateProgress(gameId, request));
+    }
 
     @PatchMapping("/games/{gameId}")
     public ResponseEntity<Void> renameGame(
             @PathVariable Long gameId,
             @Valid @RequestBody RenameRequest request
     ) {
+        gameService.renameGame(gameId, request);
         return ResponseEntity.noContent().build();
     }
 
