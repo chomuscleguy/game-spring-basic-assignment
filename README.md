@@ -6,24 +6,20 @@
 <details>
 <summary><b>[자세히] </b></summary>
 
-<br>
-
----
-
-### 1. Dockerfile 구성
+1. Dockerfile 구성
 * Java 21 실행 환경 구축 및 실행 가능한 `.jar` 파일 등록
 
  [Dockerfile 바로가기](./Dockerfile)
 
 ---
 
-### 2. 애플리케이션 아티팩트 빌드
+2. 애플리케이션 아티팩트 빌드
 * Docker 이미지 빌드 전, Gradle을 통해 실행 가능한 `.jar` 파일 생성
 ```bash
 ./gradlew clean build -x test
 ```
 ---
-### 3. docker-compose.yml 구성
+3. docker-compose.yml 구성
 MySQL 데이터베이스와 Spring Boot 애플리케이션 컨테이너 묶음 관리
 
 DB 데이터 영속성을 위한 볼륨 마운트 및 healthcheck 조건 적용
@@ -32,7 +28,7 @@ DB 데이터 영속성을 위한 볼륨 마운트 및 healthcheck 조건 적용
 
 ---
 
-### 4. 환경 변수 세팅 (.env)
+4. 환경 변수 세팅 (.env)
 DB 접속 정보 및 루트 비밀번호 등 보안 민감 정보 분리 (.gitignore 처리)
 
 협업 및 평가용 환경 변수 스키마 제공
@@ -41,7 +37,7 @@ DB 접속 정보 및 루트 비밀번호 등 보안 민감 정보 분리 (.gitig
  
 ---
 
-### 5. Docker Compose 서비스 실행
+5. Docker Compose 서비스 실행
 설정된 환경 변수와 Compose 파일 기반으로 서비스 일괄 구동
 
 ```Bash
@@ -52,8 +48,6 @@ docker-compose up -d --build
 docker-compose ps
 ```
 
----
-
 </details>
 
 **Lv2. 의존성 주입(DI)**
@@ -61,8 +55,6 @@ docker-compose ps
 
 <details>
 <summary><b>[자세히]</b></summary>
-
-<br>
 
 ```문제 상황 (에러 로그 분석)
 my-app | ***************************
@@ -101,8 +93,6 @@ public class GameService {
 <details>
 <summary><b>[자세히]</b></summary>
 
-<br>
-
 ```Bash
 ##docker의 mySQL에 접속
 docker exec -it assignment-mysql mysql -u root -p
@@ -136,8 +126,6 @@ show tables;
 <details>
 <summary><b>[자세히] </b></summary>
 
-<br>
-
 ![레벨 3 에러 해결 화면](./img/lv3_img.png)
 
 </details>
@@ -149,8 +137,6 @@ show tables;
 
 <details>
 <summary><b>[자세히] </b></summary>
-
-<br>
 
 ```문제 상황(에러 코드)
 my-app  | Hibernate: insert into games (current_floor,current_hp,phase,player_name,status) values (?,?,?,?,?)
@@ -182,8 +168,6 @@ public GameDetailResponse createGame(CreateRequest request) {
 
 <details>
 <summary><b>[자세히] </b></summary>
-
-<br>
 
 ```java
 @Getter
@@ -229,8 +213,6 @@ public class RunCardRequest {
 <details>
 <summary><b>[자세히] </b></summary>
 
-<br>
-
 ```java
 @PutMapping("/games/{gameId}/progress")
 public ResponseEntity<?> updateProgress(
@@ -246,5 +228,151 @@ public GameDetailResponse updateProgress(Long gameId, ProgressRequest request) {
 ```
 기존 메서드의 반환 타입이 와일드카드(<?>)로 지정되어 있어, 이를 명확한 타입으로 수정하여 타입 안정성을 높였습니다. 
 해당 메서드가 반환하는 updateProgress()의 리턴 타입이 GameDetailResponse이므로, ResponseEntity의 제네릭 타입도 GameDetailResponse로 맞춰주었습니다.
+
+</details>
+
+**Lv7. 보상 카드 선택과 진행 저장**
+Spring Data JPA가 커스텀 쿼리 메서드로 정렬 조회를 만들어 주는 규칙(OrderBy, Asc, Desc)을 직접 검색해서 문제를 풀어주세요.
+
+- [x]  아래의 코드를 이용하여 게임 목록 조회 API를 구현하세요. 게임 목록은 Game의 id 기준 내림차순입니다.
+
+```java
+@GetMapping("/games")
+public ResponseEntity<List<GameSummaryResponse>> getGames() {
+    return ResponseEntity.ok(gameService.getGames());
+}
+```
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+1. DTO 구성 및 Service 로직 구현
+게임 목록 조회 응답에 필요한 정보를 담기 위해 GameSummaryResponse DTO를 정의하고, GameRepository에 findAllByOrderByIdDesc() 쿼리 메서드를 추가했습니다.
+getGames() 메서드에서는 DB 전체 카드 목록을 매번 조회하지 않고, Game 엔티티에 역정규화된 deckSize와 생성/수정 시간을 활용하여 단일 쿼리로 최적화된 조회를 수행하도록 구성했습니다.
+
+[GameSummaryResponse 바로가기](./src/main/java/com/gamebasic/game/dto/GameSummaryResponse.java)
+
+[GameRepository 바로가기](./src/main/java/com/gamebasic/game/repository/GameRepository.java)
+
+```java
+@Transactional(readOnly = true)
+    public List<GameSummaryResponse> getGames() {
+        return gameRepository.findAllByOrderByIdDesc().stream()
+                .map(game -> new GameSummaryResponse(
+                        game.getId(),
+                        game.getPlayerName(),
+                        game.getCurrentFloor(),
+                        game.getCurrentHp(),
+                        game.getPhase(),
+                        game.getStatus(),
+                        game.getDeckSize(),
+                        game.getCreatedAt().toString(),
+                        game.getUpdatedAt().toString()
+                )).toList();
+
+    }
+```
+
+---
+
+2. Entity 필드 추가 및 JPA Auditing 적용
+Game 엔티티에 deckSize, createdAt, updatedAt 필드를 추가했습니다. 생성/수정 시점의 시간을 서비스 로직에서 수동(LocalDateTime.now())으로 할당하지 않고, Spring Data JPA Auditing을 적용하여 자동으로 관리되도록 개선했습니다.
+
+```java
+@Column(nullable = false)
+    private int deckSize = 0;
+
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+```
+
+아래와 같이 어노테이션을 적용
+```java
+
+@EntityListeners(AuditingEntityListener.class)
+public class Game {
+}
+
+@EnableJpaAuditing
+public class GameBasicApplication {
+}
+```
+
+---
+
+3. Docker MySQL 스키마(Table) 업데이트
+엔티티 필드 변경 사항을 실제 Docker MySQL 컨테이너의 games 테이블에 반영하기 위해 ALTER TABLE DDL 쿼리를 실행했습니다.
+
+```bash
+# Docker MySQL 컨테이너 접속
+docker exec -it assignment-mysql mysql -u root -p
+
+USE assignment_db;
+
+# deck_size, created_at, updated_at 컬럼 추가
+ALTER TABLE games 
+  ADD COLUMN deck_size INT NOT NULL DEFAULT 0,
+  ADD COLUMN created_at DATETIME(6) NULL DEFAULT CURRENT_TIMESTAMP(6),
+  ADD COLUMN updated_at DATETIME(6) NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6);
+
+# 테이블 구조 반영 확인
+DESC games;
+```
+
+작업 완료 후, API 호출 시 DB 변경 사항이 잘 매핑되어 정상적으로 목록을 반환하는 것까지 검증을 완료했습니다.
+
+</details>
+
+- [x]  아래의 코드를 이용하여 게임 상세 조회 API를 구현하세요.
+
+```java
+@GetMapping("/games/{gameId}")
+public ResponseEntity<GameDetailResponse> getGame(@PathVariable Long gameId) {
+    return ResponseEntity.ok(gameService.getGame(gameId));
+}
+```
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+GameDetailResponse 응답을 구성하기 위해 먼저 gameId로 Game 엔티티를 조회합니다.
+이후 해당 Game에 속한 덱(RunCard) 목록을 ID 오름차순으로 조회하고, 이를 CardResponse DTO 목록으로 변환하여 최종 상세 응답 DTO를 생성합니다.
+
+```java
+@Transactional(readOnly = true)
+    public GameDetailResponse getGame(Long gameId) {
+        Game game = findGame(gameId);
+
+        List<RunCard> cards = runCardRepository.findAllByGameOrderByIdAsc(game);
+        List<CardResponse> deck = cards.stream()
+                .map(card -> new CardResponse(card.getId(), card.getCardType(), card.getAcquiredFloor()))
+                .toList();
+
+        return new GameDetailResponse(
+                game.getId(),
+                game.getPlayerName(),
+                game.getCurrentHp(),
+                game.getCurrentFloor(),
+                game.getPhase(),
+                game.getStatus(),
+                deck
+        );
+    }
+```
+
+
+</details>
+
+- [x]  확인: 새로고침 해도 아래처럼 "저장된 여정"에 게임이 남아 있고, 선택하면 저장된 HP·층·덱이 그대로 이어집니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+![레벨 7 에러 해결 화면](./img/lv7_img.png)
 
 </details>
