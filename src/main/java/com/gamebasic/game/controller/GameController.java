@@ -2,6 +2,7 @@ package com.gamebasic.game.controller;
 
 import com.gamebasic.game.dto.*;
 import com.gamebasic.game.service.GameService;
+import com.gamebasic.ranking.dto.RankingResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

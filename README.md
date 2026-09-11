@@ -634,3 +634,217 @@ public class DeckCount {
 ![레벨 11 에러 해결 화면](./img/lv11_2_img.png)
 
 </details>
+
+**Lv12. 랭킹**
+RestClient에 대해 공부하시고 문제를 풀어주세요.
+
+랭킹은 외부 API를 통해 가져옵니다. 그 안에는 버그성 플레이로 보이는 기록과 형식이 어긋난 기록이 섞여 있습니다. 서버가 원본을 받아 명세의 규칙대로 걸러내고 정렬한 랭킹을 제공해야합니다.
+
+- [x]  RestClient는 스프링이 제공하는 HTTP 클라이언트로, retrieve().body(클래스)가 응답 JSON을 그 클래스의 객체로 바꿔 줍니다. 아래의 코드를 통해 RestClient를 수동으로 Bean 등록 후, DI하여 사용하세요.
+
+`RestClient`
+```java
+@Component
+public class RankingClient {
+
+    private static final String SOURCE_URL = "https://f-api.github.io/game-spring-api-docs/basic/rankings.json";
+
+    private final RestClient restClient = RestClient.create();
+
+    public RankingSource fetch() {
+        return restClient.get()
+            .uri(SOURCE_URL)
+            .retrieve()
+            .body(RankingSource.class);
+    }
+}
+```
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+@Configuration 클래스 안에서 @Bean 메서드로 RestClient 인스턴스를 직접 생성해서 스프링 컨테이너에 등록합니다.
+
+```java
+@Configuration
+public class RestClientConfig {
+
+    @Bean
+    public RestClient restClient() {
+        return RestClient.create();
+    }
+}
+```
+
+RestClient타입의 빈이 필요로 하기에, RestClientConfig에 등록해둔 빈을 자동으로 찾아서 넣어줍니다. 
+
+```java
+public class RankingClient {
+
+    private static final String SOURCE_URL = "https://f-api.github.io/game-spring-api-docs/basic/rankings.json";
+
+    private final RestClient restClient = RestClient.create();
+
+    public RankingSource fetch() {
+        return restClient.get()
+                .uri(SOURCE_URL)
+                .retrieve()
+                .body(new ParameterizedTypeReference<RankingSource>() {});
+    }
+}
+```
+
+</details>
+
+- [x]  응답을 받을 DTO 클래스들을 랭킹 API 데이터 구조에 맞게 만드세요.
+
+---
+
+| 응답 필드 | 설명 |
+| --- | --- |
+| `meta.season.id`, `.name`, `.startsAt`, `.endsAt` | 시즌 식별자, 이름, 기간 |
+| `meta.generatedAt`, `meta.schemaVersion`, `meta.totalRecords` | 생성 시각, 응답 형식 버전, 기록 수 |
+| `records[]` | 제출 기록 목록 |
+| `records[].id` | 기록 ID. 응답 안에서 고유 |
+| `records[].submittedAt` | 제출 시각(UTC) |
+| `records[].client.version`, `.platform`, `.locale` | 기록을 보낸 게임 클라이언트 정보 |
+| `records[].player.id`, `.name`, `.region`, `.tags[]` | 플레이어 ID와 이름, 지역 코드, 태그 목록. 같은 플레이어는 같은 `id`를 가지며 여러 기록을 제출할 수 있음 |
+| `records[].run.seed` | 게임 시드 |
+| `records[].run.status` | `CLEARED` 또는 `FAILED` |
+| `records[].run.clearedFloor` | 클리어한 마지막 층 |
+| `records[].run.durationSeconds` | 시작부터 끝까지 걸린 시간(초) |
+| `records[].run.finalHp` | 끝난 시점의 HP |
+| `records[].run.floors[]` | 층별 로그. `floor`, `enemy`, `turns`, `hpAfter`, `rewards[]`(`offered[]`, `picked`; 고르지 않았으면 `picked`가 `null`, 보상이 없는 층은 `rewards`가 `null`) |
+| `records[].bossFight` | 최종 보스전. 10층을 클리어하지 못한 기록은 `null` |
+| `records[].bossFight.phases[]` | 페이즈별 기록. `phase`, `turns`, `damageTaken` |
+| `records[].bossFight.finishingCard` | 보스를 쓰러뜨린 카드의 카드 타입 |
+| `records[].bossFight.totalTurns` | 보스전 총 턴 수라고 제공처가 적어 보낸 값 |
+| `records[].deck.size` | 덱 카드 수라고 제공처가 적어 보낸 값 |
+| `records[].deck.cards[]` | 끝난 시점의 덱. `cardType`, `acquiredFloor`(시작 덱은 0) |
+
+---
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+랭킹 API 응답 구조를 그대로 반영하도록 `RankingSource`를 최상위로 하여
+중첩 record 구조로 DTO를 설계했습니다.
+
+[RankingSource 바로가기](./src/main/java/com/gamebasic/ranking/client/dto/RankingSource.java)
+
+</details>
+
+
+- [x]  아래의 코드를 이용하여 랭킹 API를 구현하세요. 서비스는 외부 랭킹 API의 응답을 받아 다음 순서로 처리한 결과를 응답 DTO RankingResponse로 만듭니다.
+- `getRankings()`
+    
+    ```java
+    @GetMapping("/rankings")
+    public ResponseEntity<RankingResponse> getRankings() {
+        return ResponseEntity.ok(rankingService.getRankings());
+    }
+    ```
+    
+- `CardType`
+    
+    ```java
+    public enum CardType {
+        STRIKE,
+        GUARD,
+        MIST_KNOT,
+        HEAVY_BLOW,
+        TENDON_SEVER,
+        TWIN_SLASH,
+        QUICK_SLASH,
+        IRON_WALL,
+        BLOOD_RUNE,
+        ECHO_GUARD,
+        SUNDER,
+        MEND,
+        COUNTER_SIGIL,
+        ARCANE_BOLT,
+        WARDING_SLASH,
+        RUNE_SURGE,
+        SHATTER_BOLT,
+        EXECUTION_RUNE,
+        BLOOD_AMPLIFY,
+        LAST_STAND,
+        DECAPITATE,
+        NIGHT_DANCE,
+        MIST_FORM,
+        NIGHT_FEAST,
+        SCARLET_MEMORY,
+        BLOOD_OFFERING,
+        SEALED_WOUND,
+        THIRSTING_BLOW,
+        BLOOD_TOLL,
+        NIGHT_TITHE,
+        CRIMSON_RECLAIM,
+        HEART_PIERCE,
+        SHATTER_ARMOR,
+        VOID_NIGHT,
+        NIGHT_AFTERIMAGE,
+        KILLING_MOMENTUM,
+        LINGERING_THUNDER,
+        SECOND_HEART
+    }
+    ```
+
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+CardType은 runCard 패키지 아래에 생성해주고, 
+RankingResponse와 RankingService를 만들었습니다.
+
+[RankingResponse와 바로가기](./src/main/java/com/gamebasic/ranking/dto/RankingResponse.java)
+
+[RankingService를 바로가기](./src/main/java/com/gamebasic/ranking/service/RankingService.java)
+
+외부 API를 받아서, SQL에 저장을 하지 않고 바로 반환을 시키기 위해, entity를 따로 만들지 않고 바로 데이터를 가공해서 사용했습니다.
+
+</details>
+
+랭킹 데이터 필터링 및 정렬 조건
+<summary><b>[자세히] </b></summary>
+1. **순위 대상.** `run.status`가 `CLEARED`이고 `run.clearedFloor`가 `10`인 기록만 순위 대상입니다. 그 밖의 기록은 순위에도, `excludedCount`에도 들어가지 않습니다.
+2. **정상 기록 조건.** 순위 대상 중 아래를 하나라도 어기는 기록은 이상 기록으로 보고 제외하며, 제외한 수가 `excludedCount`입니다.
+    
+---
+    
+| 항목 | 정상 기록의 조건 |
+| --- | --- |
+| 클리어 시간 | `run.durationSeconds`가 층당 30초 이상, 즉 `run.clearedFloor × 30` 이상 |
+| 남은 HP | `run.finalHp`가 1 이상 99 이하 |
+| 덱 크기 | `deck.cards`가 9장 이상 20장 이하이고, `deck.size`가 `deck.cards`의 실제 개수와 같음 |
+| 카드 타입 | 모든 `deck.cards[].cardType`이 카드 타입(`enum CardType`) 목록에 있는 값 |
+| 획득 층 | 모든 `deck.cards[].acquiredFloor`가 0 이상 9 이하 |
+| 보스 페이즈 | `bossFight.phases`가 `THRONE`, `UNBOUND`, `ECLIPSE` 순서로 정확히 3개이고, 각 `turns`가 1 이상이며, `bossFight.totalTurns`가 세 `turns`의 합과 같음 |
+| 마무리 카드 | `bossFight.finishingCard`가 그 기록의 `deck.cards`에 있는 카드 타입 |
+
+---
+
+3. **정렬.** 정상 기록을 `run.durationSeconds` 오름차순, 같으면 `run.finalHp` 내림차순, 그래도 같으면 `id` 오름차순으로 정렬합니다.
+4. **플레이어당 하나.** 같은 `player.id`의 정상 기록이 여러 개면 정렬 순서에서 앞선 하나만 남기고, 남은 기록에 1부터 순위를 매깁니다. 응답의 `season`은 `meta.season.id`, `totalRecords`는 `records`의 개수, `bossTurns`는 `bossFight.totalTurns`, `deckSize`는 `deck.cards`의 개수입니다.
+
+위의 조건을 맞추기 위해
+RankingValidator 만들었습니다.
+
+[RankingValidator 바로가기](./src/main/java/com/gamebasic/ranking/service/RankingValidator.java)
+
+RankingService에서 원본 데이터를 받고, RankingValidator 통해 적합하지 않은 데이터를 걸러내는 작업을 진행했습니다.
+많은 데이터가 있고, 제한사항도 있기 때문에 Valiator에 log를 찍어 경계값 오류들을 걸러내는 작업들을 진행했습니다.
+
+과제가 DTO 필드명이 JSON 키와 정확히 일치해야 작동하다 보니, 응답 DTO에서 bossTurns를 bossTurn으로
+잘못 적어 Postman에는 값이 제대로 찍혔지만 게임 클라이언트가 기대하는 키와 달라 실행되지 않는 문제가 있었습니다. 
+여기에 Validator의 논리 연산자 오류, CardType 값 검증 시 대소문자를 관대하게 허용하던 문제까지 겹쳐 여러 이슈가 있었지만, 
+디버깅 과정을 통해 모두 수정해 나갔습니다.
+
+- [x]  확인: 저장된 여정 화면 아래에 "랭킹" 패널이 나타나고 1위부터 3위까지 표시됩니다. 응답이 명세와 다르면 게임은 에러 창을 띄우고 시작되지 않습니다.
+
+<details>
+<summary><b>[자세히] </b></summary>
+
+![레벨 12 에러 해결 화면](./img/lv12_img.png)
+
+</details>
